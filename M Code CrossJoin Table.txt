@@ -1,0 +1,321 @@
+let
+  Source = Csv.Document(
+    File.Contents(
+      "C:\Users\...\candy-data.csv"
+    ),
+    [Delimiter = ",", Columns = 13, Encoding = 1252, QuoteStyle = QuoteStyle.None]
+  ),
+  #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+  #"Changed Type" = Table.TransformColumnTypes(
+    #"Promoted Headers",
+    {
+      {"competitorname", type text},
+      {"chocolate", Int64.Type},
+      {"fruity", Int64.Type},
+      {"caramel", Int64.Type},
+      {"peanutyalmondy", Int64.Type},
+      {"nougat", Int64.Type},
+      {"crispedricewafer", Int64.Type},
+      {"hard", Int64.Type},
+      {"bar", Int64.Type},
+      {"pluribus", Int64.Type},
+      {"sugarpercent", type number},
+      {"pricepercent", type number},
+      {"winpercent", type number}
+    }
+  ),
+  // Seleccionamos las columnas correspondientes para el primer conjunto de datos (Candy1)
+  CandySet1 = Table.SelectColumns(
+    #"Changed Type",
+    {
+      "competitorname",
+      "chocolate",
+      "fruity",
+      "caramel",
+      "peanutyalmondy",
+      "nougat",
+      "crispedricewafer",
+      "hard",
+      "bar",
+      "sugarpercent",
+      "pricepercent",
+      "winpercent"
+    }
+  ),
+  RenameCandySet1 = Table.RenameColumns(
+    CandySet1,
+    {
+      {"competitorname", "Candy1"},
+      {"winpercent", "Winpercent1"},
+      {"chocolate", "Chocolate1"},
+      {"fruity", "Fruity1"},
+      {"caramel", "Caramel1"},
+      {"peanutyalmondy", "PeanutAlmondy1"},
+      {"nougat", "Nougat1"},
+      {"crispedricewafer", "Crispedricewafer1"},
+      {"hard", "Hard1"},
+      {"bar", "Bar1"},
+      {"sugarpercent", "Sugarpercent1"},
+      {"pricepercent", "Pricepercent1"}
+    }
+  ),
+  // Seleccionamos y renombramos las columnas para el segundo conjunto de datos (Candy2)
+  CandySet2 = Table.SelectColumns(
+    #"Changed Type",
+    {
+      "competitorname",
+      "chocolate",
+      "fruity",
+      "caramel",
+      "peanutyalmondy",
+      "nougat",
+      "crispedricewafer",
+      "hard",
+      "bar",
+      "sugarpercent",
+      "pricepercent",
+      "winpercent"
+    }
+  ),
+  RenameCandySet2 = Table.RenameColumns(
+    CandySet2,
+    {
+      {"competitorname", "Candy2"},
+      {"winpercent", "Winpercent2"},
+      {"chocolate", "Chocolate2"},
+      {"fruity", "Fruity2"},
+      {"caramel", "Caramel2"},
+      {"peanutyalmondy", "PeanutAlmondy2"},
+      {"nougat", "Nougat2"},
+      {"crispedricewafer", "Crispedricewafer2"},
+      {"hard", "Hard2"},
+      {"bar", "Bar2"},
+      {"sugarpercent", "Sugarpercent2"},
+      {"pricepercent", "Pricepercent2"}
+    }
+  ),
+  // Seleccionamos y renombramos las columnas para el tercer conjunto de datos (Candy3)
+  CandySet3 = Table.SelectColumns(
+    #"Changed Type",
+    {
+      "competitorname",
+      "chocolate",
+      "fruity",
+      "caramel",
+      "peanutyalmondy",
+      "nougat",
+      "crispedricewafer",
+      "hard",
+      "bar",
+      "sugarpercent",
+      "pricepercent",
+      "winpercent"
+    }
+  ),
+  RenameCandySet3 = Table.RenameColumns(
+    CandySet3,
+    {
+      {"competitorname", "Candy3"},
+      {"winpercent", "Winpercent3"},
+      {"chocolate", "Chocolate3"},
+      {"fruity", "Fruity3"},
+      {"caramel", "Caramel3"},
+      {"peanutyalmondy", "PeanutAlmondy3"},
+      {"nougat", "Nougat3"},
+      {"crispedricewafer", "Crispedricewafer3"},
+      {"hard", "Hard3"},
+      {"bar", "Bar3"},
+      {"sugarpercent", "Sugarpercent3"},
+      {"pricepercent", "Pricepercent3"}
+    }
+  ),
+  // Realizamos el CROSSJOIN combinando las tres tablas
+  CrossJoin1 = Table.AddColumn(RenameCandySet1, "Temp", each RenameCandySet2),
+  ExpandedJoin1 = Table.ExpandTableColumn(CrossJoin1, "Temp", Table.ColumnNames(RenameCandySet2)),
+  CrossJoin2 = Table.AddColumn(ExpandedJoin1, "Temp", each RenameCandySet3),
+  ExpandedJoin2 = Table.ExpandTableColumn(CrossJoin2, "Temp", Table.ColumnNames(RenameCandySet3)),
+  #"Added FirstCandy" = Table.AddColumn(
+    ExpandedJoin2,
+    "FirstCandy",
+    each List.Min({[Candy1], [Candy2], [Candy3]})
+  ),
+  #"Added ThirdCandy" = Table.AddColumn(
+    #"Added FirstCandy",
+    "ThirdCandy",
+    each List.Max({[Candy1], [Candy2], [Candy3]})
+  ),
+  #"Added SecondCandy" = Table.AddColumn(
+    #"Added ThirdCandy",
+    "SecondCandy",
+    each
+      if [Candy1] <> [FirstCandy] and [Candy1] <> [ThirdCandy] then
+        [Candy1]
+      else if [Candy2] <> [FirstCandy] and [Candy2] <> [ThirdCandy] then
+        [Candy2]
+      else
+        [Candy3]
+  ),
+  #"Added Conditional Column" = Table.AddColumn(
+    #"Added SecondCandy",
+    "SortedCombination",
+    each
+      if [Candy1] <> [Candy2] and [Candy1] <> [Candy3] and [Candy2] <> [Candy3] then
+        Text.Combine({[FirstCandy], [SecondCandy], [ThirdCandy]}, ", ")
+      else
+        "Null"
+  ),
+  #"Filtered Rows" = Table.SelectRows(
+    #"Added Conditional Column",
+    each ([SortedCombination] <> "Null")
+  ),
+  #"Added Custom" = Table.AddColumn(
+    #"Filtered Rows",
+    "Total Winpercent",
+    each ([Winpercent1] + [Winpercent2] + [Winpercent3]) / 3
+  ),
+  #"Added Custom1" = Table.AddColumn(
+    #"Added Custom",
+    "Total SugarPercent",
+    each ([Sugarpercent1] + [Sugarpercent2] + [Sugarpercent3]) / 3
+  ),
+  #"Added Custom2" = Table.AddColumn(
+    #"Added Custom1",
+    "Total PricePercent",
+    each ([Pricepercent1] + [Pricepercent2] + [Pricepercent3]) / 3
+  ),
+  #"Unpivoted Only Selected Columns" = Table.Unpivot(
+    #"Added Custom2",
+    {
+      "Chocolate1",
+      "Fruity1",
+      "Caramel1",
+      "PeanutAlmondy1",
+      "Nougat1",
+      "Crispedricewafer1",
+      "Hard1",
+      "Bar1",
+      "Chocolate2",
+      "Fruity2",
+      "Caramel2",
+      "PeanutAlmondy2",
+      "Nougat2",
+      "Crispedricewafer2",
+      "Hard2",
+      "Bar2",
+      "Chocolate3",
+      "Fruity3",
+      "Caramel3",
+      "PeanutAlmondy3",
+      "Nougat3",
+      "Crispedricewafer3",
+      "Hard3",
+      "Bar3"
+    },
+    "Attribute",
+    "Value"
+  ),
+  #"Filtered Rows1" = Table.SelectRows(#"Unpivoted Only Selected Columns", each ([Value] = 1)),
+  #"Replaced Value" = Table.ReplaceValue(
+    #"Filtered Rows1",
+    "1",
+    "",
+    Replacer.ReplaceText,
+    {"Attribute"}
+  ),
+  #"Replaced Value1" = Table.ReplaceValue(
+    #"Replaced Value",
+    "2",
+    "",
+    Replacer.ReplaceText,
+    {"Attribute"}
+  ),
+  #"Replaced Value2" = Table.ReplaceValue(
+    #"Replaced Value1",
+    "3",
+    "",
+    Replacer.ReplaceText,
+    {"Attribute"}
+  ),
+  #"Trimmed Text" = Table.TransformColumns(
+    #"Replaced Value2",
+    {{"Attribute", Text.Trim, type text}}
+  ),
+  #"Removed Duplicates" = Table.Distinct(#"Trimmed Text", {"SortedCombination", "Attribute"}),
+  #"Removed Other Columns" = Table.SelectColumns(
+    #"Removed Duplicates",
+    {
+      "SortedCombination",
+      "Total Winpercent",
+      "Total SugarPercent",
+      "Total PricePercent",
+      "Attribute"
+    }
+  ),
+  #"Added Sugar" = Table.AddColumn(
+    #"Removed Other Columns",
+    "Sugar",
+    each
+      if [Total SugarPercent] <= 0.1 then
+        1
+      else if [Total SugarPercent] <= 0.2 then
+        2
+      else if [Total SugarPercent] <= 0.3 then
+        3
+      else if [Total SugarPercent] <= 0.4 then
+        4
+      else if [Total SugarPercent] <= 0.5 then
+        5
+      else if [Total SugarPercent] <= 0.6 then
+        6
+      else if [Total SugarPercent] <= 0.7 then
+        7
+      else if [Total SugarPercent] <= 0.8 then
+        8
+      else if [Total SugarPercent] <= 0.9 then
+        9
+      else if [Total SugarPercent] <= 1 then
+        10
+      else
+        "Logic!"
+  ),
+  #"Added Price" = Table.AddColumn(
+    #"Added Sugar",
+    "Price",
+    each
+      if [Total PricePercent] <= 0.1 then
+        1
+      else if [Total PricePercent] <= 0.2 then
+        2
+      else if [Total PricePercent] <= 0.3 then
+        3
+      else if [Total PricePercent] <= 0.4 then
+        4
+      else if [Total PricePercent] <= 0.5 then
+        5
+      else if [Total PricePercent] <= 0.6 then
+        6
+      else if [Total PricePercent] <= 0.7 then
+        7
+      else if [Total PricePercent] <= 0.8 then
+        8
+      else if [Total PricePercent] <= 0.9 then
+        9
+      else if [Total PricePercent] <= 1 then
+        10
+      else
+        "Logic!"
+  ),
+  #"Changed Type1" = Table.TransformColumnTypes(
+    #"Added Price",
+    {
+      {"SortedCombination", type text},
+      {"Total Winpercent", type number},
+      {"Total SugarPercent", type number},
+      {"Total PricePercent", type number},
+      {"Attribute", type text},
+      {"Sugar", Int64.Type},
+      {"Price", Int64.Type}
+    }
+  )
+in
+  #"Changed Type1"
